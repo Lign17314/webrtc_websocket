@@ -84,7 +84,8 @@ async function hangup() {
 };
 
 function createPeerConnection() {
-  pc = new RTCPeerConnection();
+  const configuration = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] };
+  pc = new RTCPeerConnection(configuration);
   pc.onicecandidate = e => {
     const message = {
       type: 'candidate',
@@ -94,8 +95,9 @@ function createPeerConnection() {
       message.candidate = e.candidate.candidate;
       message.sdpMid = e.candidate.sdpMid;
       message.sdpMLineIndex = e.candidate.sdpMLineIndex;
+      websocket.send(JSON.stringify(message));
+      console.log(JSON.stringify(message));
     }
-    websocket.send(JSON.stringify(message));
   };
   pc.ontrack = e => remoteVideo.srcObject = e.streams[0];
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -106,6 +108,7 @@ async function makeCall() {
 
   const offer = await pc.createOffer();
   websocket.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
+  console.log(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
   await pc.setLocalDescription(offer);
 }
 
