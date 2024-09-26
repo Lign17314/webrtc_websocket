@@ -18,21 +18,23 @@ const remoteVideo = document.getElementById('remoteVideo');
 let pc;
 let localStream;
 
-const signaling = new BroadcastChannel('webrtc');
-signaling.onmessage = e => {
+const websocket = new WebSocket("ws://localhost:3000")
+websocket.onmessage = function (event) {
+  console.log(event.data);
+  var msg = JSON.parse(event.data);
   if (!localStream) {
     console.log('not ready yet');
     return;
   }
-  switch (e.data.type) {
+  switch (msg.type) {
     case 'offer':
-      handleOffer(e.data);
+      handleOffer(msg);
       break;
     case 'answer':
-      handleAnswer(e.data);
+      handleAnswer(msg);
       break;
     case 'candidate':
-      handleCandidate(e.data);
+      handleCandidate(msg);
       break;
     case 'ready':
       // A second tab joined. This tab will initiate a call unless in a call already.
@@ -48,9 +50,10 @@ signaling.onmessage = e => {
       }
       break;
     default:
-      console.log('unhandled', e);
+      console.log('unhandled', event);
       break;
   }
+
 };
 
 startButton.onclick = async () => {
@@ -61,12 +64,12 @@ startButton.onclick = async () => {
   startButton.disabled = true;
   hangupButton.disabled = false;
 
-  signaling.postMessage({ type: 'ready' });
+  websocket.send(JSON.stringify({ type: 'ready' }));
 };
 
 hangupButton.onclick = async () => {
   hangup();
-  signaling.postMessage({ type: 'bye' });
+  websocket.send(JSON.stringify({ type: 'bye' }));
 };
 
 async function hangup() {
@@ -92,7 +95,7 @@ function createPeerConnection() {
       message.sdpMid = e.candidate.sdpMid;
       message.sdpMLineIndex = e.candidate.sdpMLineIndex;
     }
-    signaling.postMessage(message);
+    websocket.send(JSON.stringify(message));
   };
   pc.ontrack = e => remoteVideo.srcObject = e.streams[0];
   localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
@@ -102,7 +105,7 @@ async function makeCall() {
   await createPeerConnection();
 
   const offer = await pc.createOffer();
-  signaling.postMessage({ type: 'offer', sdp: offer.sdp });
+  websocket.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }));
   await pc.setLocalDescription(offer);
 }
 
@@ -115,7 +118,7 @@ async function handleOffer(offer) {
   await pc.setRemoteDescription(offer);
 
   const answer = await pc.createAnswer();
-  signaling.postMessage({ type: 'answer', sdp: answer.sdp });
+  websocket.send(JSON.stringify({ type: 'answer', sdp: answer.sdp }));
   await pc.setLocalDescription(answer);
 }
 
